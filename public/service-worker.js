@@ -1,6 +1,7 @@
 /* eslint-env serviceworker */
 // service-worker.js
 const CACHE_NAME = 'devstream-v1';
+const CACHE_NAME = "devstream-v2";
 
 // List of resources to cache
 const CACHE_RESOURCES = [
@@ -73,6 +74,29 @@ self.addEventListener('fetch', (event) => {
         );
         return response;
       }
+self.addEventListener("fetch", (event) => {
+    // 1. Bypass Service Worker for API requests (Network Only)
+    if (event.request.url.includes('/api/')) {
+        return;
+    }
+
+    event.respondWith(
+        caches.match(event.request).then((response) => {
+            if (response) {
+                // Update cache in background while serving cached response
+                event.waitUntil(
+                    fetch(event.request).then((newResponse) => {
+                        if (newResponse.ok) {
+                            caches.open(CACHE_NAME).then((cache) => {
+                                cache.put(event.request, newResponse.clone());
+                            });
+                        }
+                    }).catch(error => {
+                        console.error("Failed to update cache:", error);
+                    })
+                );
+                return response;
+            }
 
       // Handle non-cached requests
       return fetch(event.request).catch((error) => {
